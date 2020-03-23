@@ -239,8 +239,9 @@ namespace fsm_decoder
 
     void print_stats()
     {
-        std::cout << "Packages\n"
-            << "total: " << packages_total << ", valid: " << packages_valid << "\n";
+        std::cout << "Packages total: " << packages_total <<
+            ", valid: " << packages_valid <<
+            ", invalid: " << (packages_total - packages_valid) << "\n";
         current_state = state::exiting;
     }
 
