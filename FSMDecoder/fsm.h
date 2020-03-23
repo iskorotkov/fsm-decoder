@@ -3,6 +3,8 @@
 #include <fstream>
 #include <optional>
 #include <vector>
+#include <iomanip>
+#include <string>
 
 #include "state.h"
 #include "crc.h"
@@ -17,20 +19,21 @@ namespace fsm_decoder
     const auto expected_sync = std::byte(0xAA);
     const auto expected_id = std::byte(0x87);
     const auto expected_length = std::byte(45);
+    const auto default_width = 10;
 
     state current_state = state::search_sync;
 
     auto packages_total = 0;
     auto packages_valid = 0;
-    std::ifstream input;
-    std::ofstream output;
+    std::ifstream in;
+    std::ofstream out;
     std::vector<std::byte> data;
 
     std::optional<std::byte> next_byte()
     {
-        if (input)
+        if (in)
         {
-            return std::byte(input.get());
+            return std::byte(in.get());
         }
         return {};
     }
@@ -39,17 +42,23 @@ namespace fsm_decoder
             const int length = std::to_integer<int>(expected_length) - 2
         )
     {
-        const auto bytes_count = input.tellg();
+        const auto bytes_count = in.tellg();
 
         auto buffer = new std::byte[length];
-        input.read((char*)buffer, length);
-        std::vector vec(buffer, buffer + input.tellg() - bytes_count);
+        in.read((char*)buffer, length);
+        std::vector vec(buffer, buffer + in.tellg() - bytes_count);
 
         if (vec.size() == length)
         {
             return vec;
         }
         return {};
+    }
+
+    template <typename T>
+    void output(T value, const int width = default_width)
+    {
+        out << std::setw(width) << value;
     }
 
     void search_sync()
@@ -165,17 +174,66 @@ namespace fsm_decoder
 
     void write_header()
     {
-        output.open(output_filename);
-        output << "Ax" << "Ay" << "Az" << "Wx" << "Wy" << "Wz"
-            << "Tax" << "Tay" << "Taz" << "Twx" << "Twy" << "Twz"
-            << "S" << "Timestamp" << "Status" << "Number" << "\n";
+        out.open(output_filename);
+
+        output("Ax");
+        output("Ay");
+        output("Az");
+
+        output("Wx");
+        output("Wy");
+        output("Wz");
+
+        output("Tax");
+        output("Tay");
+        output("Taz");
+
+        output("Twx");
+        output("Twy");
+        output("Twz");
+
+        output("S", 4);
+
+        output("Timestamp");
+        output("Status");
+        output("Number");
+
+        out << "\n";
         current_state = state::write_package;
+    }
+
+    template <typename T>
+    T interpret(std::byte* arr, int start)
+    {
+        return *(T*)(arr + start);
     }
 
     void write_package()
     {
-        // TODO: write package data
-        output << "new package\n";
+        const auto raw = data.data();
+        output(interpret<int32_t>(raw, 0)); // Ax
+        output(interpret<int32_t>(raw, 4)); // Ay
+        output(interpret<int32_t>(raw, 8)); // Az
+
+        output(interpret<int32_t>(raw, 12)); // Wx
+        output(interpret<int32_t>(raw, 16)); // Wy
+        output(interpret<int32_t>(raw, 20)); // Wz
+
+        output(interpret<int16_t>(raw, 24)); // Tax
+        output(interpret<int16_t>(raw, 26)); // Tay
+        output(interpret<int16_t>(raw, 28)); // Taz
+
+        output(interpret<int16_t>(raw, 30)); // Twx
+        output(interpret<int16_t>(raw, 32)); // Twy
+        output(interpret<int16_t>(raw, 34)); // Twz
+
+        output(interpret<int16_t>(raw, 36), 4); // S
+        output(interpret<int16_t>(raw, 38)); // Timestamp
+
+        output((uint16_t)interpret<uint8_t>(raw, 40)); // Status
+        output((uint16_t)interpret<uint8_t>(raw, 41)); // Number
+
+        out << "\n";
         current_state = state::search_sync;
     }
 
@@ -222,7 +280,7 @@ namespace fsm_decoder
 
     void run()
     {
-        input.open(input_filename, std::ios::binary);
+        in.open(input_filename, std::ios::binary);
         while (current_state != state::exiting)
         {
             step();
