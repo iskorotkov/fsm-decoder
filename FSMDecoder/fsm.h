@@ -47,6 +47,7 @@ namespace fsm_decoder
         auto buffer = new std::byte[length];
         in.read((char*)buffer, length);
         std::vector vec(buffer, buffer + in.tellg() - bytes_count);
+        delete[] buffer;
 
         if (vec.size() == length)
         {
