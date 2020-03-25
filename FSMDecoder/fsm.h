@@ -13,12 +13,13 @@ namespace fsm_decoder
 {
     using namespace std::string_literals;
 
-    const auto input_filename = "data/data_no_error.bin"s;
+    const auto input_filename = "data/data_some_error.bin"s;
     const auto output_filename = "data/output.txt"s;
 
-    const auto expected_sync = std::byte(0xAA);
-    const auto expected_id = std::byte(0x87);
-    const auto expected_length = std::byte(45);
+    const auto expected_length = 45;
+    const auto expected_sync_byte = std::byte(0xAA);
+    const auto expected_id_byte = std::byte(0x87);
+    const auto expected_length_byte = std::byte(expected_length);
     const auto default_width = 10;
 
     state current_state = state::search_sync;
@@ -38,9 +39,7 @@ namespace fsm_decoder
         return {};
     }
 
-    std::optional<std::vector<std::byte>> next_bytes(
-            const int length = std::to_integer<int>(expected_length) - 2
-        )
+    std::optional<std::vector<std::byte>> next_bytes(const int length = expected_length - 2)
     {
         const auto bytes_count = in.tellg();
 
@@ -67,7 +66,7 @@ namespace fsm_decoder
         auto b = next_byte();
         if (b.has_value())
         {
-            if (b.value() == expected_sync)
+            if (b.value() == expected_sync_byte)
             {
                 current_state = state::read_sync;
             }
@@ -87,7 +86,7 @@ namespace fsm_decoder
         auto b = next_byte();
         if (b.has_value())
         {
-            if (b.value() == expected_sync)
+            if (b.value() == expected_sync_byte)
             {
                 current_state = state::read_length;
             }
@@ -107,7 +106,7 @@ namespace fsm_decoder
         auto b = next_byte();
         if (b.has_value())
         {
-            if (b.value() == expected_length)
+            if (b.value() == expected_length_byte)
             {
                 current_state = state::read_package;
             }
@@ -129,7 +128,7 @@ namespace fsm_decoder
         {
             data = std::move(bytes.value());
 
-            if (data[0] == expected_id)
+            if (data[0] == expected_id_byte)
             {
                 current_state = state::read_crc;
             }
@@ -211,7 +210,7 @@ namespace fsm_decoder
 
     void write_package()
     {
-        const auto raw = data.data();
+        const auto raw = data.data() + 1; // skip Id
         output(interpret<int32_t>(raw, 0)); // Ax
         output(interpret<int32_t>(raw, 4)); // Ay
         output(interpret<int32_t>(raw, 8)); // Az
