@@ -13,7 +13,7 @@ namespace fsm_decoder
 {
     using namespace std::string_literals;
 
-    const auto input_filename = "data/data_some_error.bin"s;
+    const auto input_filename = "data/data_no_error.bin"s;
     const auto output_filename = "data/output.txt"s;
 
     const auto expected_length = 45;
@@ -151,7 +151,7 @@ namespace fsm_decoder
         {
             auto v1 = std::to_integer<uint16_t>(b1.value());
             auto v2 = std::to_integer<uint16_t>(b2.value());
-            auto expected_crc = (v1 << 8) | v2;
+            auto expected_crc = (v2 << 8) | v1;
             auto actual_crc = crc16((uint8_t*)data.data(), data.size());
             if (actual_crc == expected_crc)
             {
